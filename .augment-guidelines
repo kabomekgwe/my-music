@@ -1,0 +1,627 @@
+# .augment-guidelines
+
+> **Full-stack application**: Next.js (client-side only) + NestJS with enterprise-grade patterns
+
+## 🚨 CRITICAL RULES (MUST FOLLOW)
+
+### Security & Authentication
+- **NEVER store sensitive data in client storage** - use sessionStorage only for non-sensitive data
+- **Validate ALL user inputs** with Zod schemas on client AND server
+- **Use Better Auth** with these required plugins: magic-link, email-otp, twoFactor, admin, organization, passkey, haveIBeenPwned, oneTimeToken, openAPI
+- **Implement rate limiting** on all API endpoints using `@nestjs/throttler`
+- **Use guards for route protection**: `@UseGuards(AuthGuard)` on all protected controllers
+- **Validate user permissions** before any data mutation: `if (!this.canUserPerformAction(user, 'CREATE', dto)) throw new ForbiddenException()`
+- **Enable CSP headers** and XSS prevention through proper escaping
+- **Use helmet** for security headers in NestJS
+
+### Database & API Requirements
+- **Use ULID for all primary keys** (Prisma: `@id @default(cuid())`, convert to ULID in app layer)
+- **Implement soft deletes** with `deleted_at` column on ALL tables
+- **Include audit logging** for all create/update/delete operations
+- **Always include timestamps**: `created_at`, `updated_at`, `deleted_at` on every table
+- **Use kebab-case for API endpoints**: `/api/v1/user-profiles/{id}`
+- **Paginate all list endpoints**: `?page=1&limit=20` (default limit=20, max=100)
+- **Use Prisma parameterized queries** to prevent SQL injection
+
+### File & Variable Naming (MANDATORY)
+- **Components**: `PascalCase.tsx` → `UserProfileCard.tsx`
+- **Pages**: `kebab-case/page.tsx` → `user-profile/page.tsx`
+- **API Routes**: `kebab-case/route.ts` → `user-profiles/route.ts`
+- **Types**: `kebab-case.types.ts` → `user-profile.types.ts`
+- **Services**: `kebab-case.service.ts` → `user-profile.service.ts`
+- **Hooks**: `use-kebab-case.ts` → `use-user-profile.ts`
+- **Booleans**: `is/has/can/should + PascalCase` → `isUserActive`, `hasPermission`
+- **Arrays**: `plural noun` → `users`, `permissions`, `activeUsers`
+- **Functions**: `verb + noun` → `getUserById`, `validateUserInput`
+- **Constants**: `SCREAMING_SNAKE_CASE` → `MAX_RETRY_ATTEMPTS`
+- **Event Handlers**: `handle + Action` → `handleSubmit`, `handleUserClick`
+- **API Fields**: `camelCase` → `{ "firstName": "John", "isActive": true }`
+
+## ⚙️ FRAMEWORK RULES
+
+### Next.js Frontend (REQUIRED)
+- **Always use `'use client'` directive** - NO server components or SSR
+- **Use route groups**: `(auth)` for public pages, `(dashboard)` for authenticated pages
+- **State management decisions**:
+  - URL-shareable state → Use URL search params with nuqs
+  - Server data → Use TanStack Query with proper cache keys
+  - Global UI state → Use Zustand store
+  - Form data → Use react-hook-form + Zod validation
+  - Local component state → Use useState/useReducer
+- **Component requirements**:
+  - Define explicit TypeScript interfaces for all props
+  - Include ARIA labels for accessibility (WCAG 2.1 AA compliance)
+  - Implement loading and error states
+  - Include skeleton components for loading states
+  - Support keyboard navigation
+
+### NestJS Backend (REQUIRED)
+- **Keep controllers thin** - only handle HTTP concerns, delegate to services
+- **Use proper HTTP status codes** with `@HttpCode()` decorator
+- **Validate all requests** with DTOs and `ValidationPipe`
+- **Use Swagger decorators** for API documentation: `@ApiOperation`, `@ApiTags`, `@ApiBody`
+- **Implement dependency injection** with interfaces for testability
+- **Use transactions** for multi-step database operations
+- **Create domain-specific exceptions** extending NestJS base exceptions
+- **Include structured logging** with Pino (include request_id, user_id, tenant_id)
+- **Use feature modules**: each feature should be self-contained
+- **Export services** that other modules need, use `@Global()` sparingly
+
+### TypeScript (STRICT)
+- **Enable strict mode** with `exactOptionalPropertyTypes`
+- **Enable `noUnusedLocals` and `noUnusedParameters`**
+- **Use path mapping**: `@/*` for src imports
+- **Prefer `interface` over `type`** for object shapes
+- **Always type function parameters and return types** for public APIs
+- **Define types locally** in each project (`backend/src/types/` and `frontend/src/types/`)
+- **Duplicate common API types** between frontend and backend for consistency
+
+## 📋 PREFERRED PRACTICES
+
+### Testing Requirements
+- **Unit Tests**: Every component and service MUST have tests
+- **Integration Tests**: All API endpoints MUST be tested
+- **E2E Tests**: Critical user flows with Playwright
+- **Coverage**: Minimum 80% code coverage required
+- **Test naming**: `component.test.tsx`, `service.spec.ts`, `feature.e2e.spec.ts`
+
+### Performance Standards
+- **Frontend**: < 3s initial load, < 100ms interactions
+- **Backend**: < 200ms p95 response time
+- **Bundle size**: < 500KB gzipped
+- **Use lazy loading** for non-critical components
+- **Implement proper caching strategies**
+
+### Code Quality Standards
+- **Use Biome** for code formatting and linting
+- **Follow conventional commits**: `feat(auth): implement JWT refresh token mechanism`
+- **Feature branches**: `feature/user-authentication`
+- **Require code review** before merge
+- **Use semantic versioning** for releases
+
+### UI/UX Standards
+- **Use Preline UI** for design inspiration
+- **Tailwind utility classes only** (no custom CSS)
+- **Include loading states** with skeletons for all components
+- **Implement optimistic updates** for better UX
+- **WCAG 2.1 AA compliance** required
+- **Support keyboard navigation** on all interactive elements
+
+## 🏗️ PROJECT CONTEXT & DECISIONS
+
+### Tech Stack Rationale
+- **Frontend**: Next.js (latest) - Client-side rendering only, no SSR/RSC
+- **Backend**: NestJS (latest) with enterprise-grade patterns
+- **Database**: PostgreSQL with Prisma (latest)
+- **Auth**: better-auth with NestJS integration
+- **State**: Zustand (global), TanStack Query (server state)
+- **Forms**: react-hook-form + zod validation
+- **Styling**: Tailwind CSS + shadcn/ui components
+- **Testing**: Jest + React Testing Library + Playwright
+- **Logging**: Pino (include request_id, user_id, tenant_id)
+- **Queue**: Bull/BullMQ with Redis
+- **Linting**: Biome
+
+### Decision Frameworks
+
+#### Component Creation
+```
+IF component has > 3 unique props AND different behavior
+  → Create new component
+ELSE IF styling differences only
+  → Use variant props with class-variance-authority (CVA)
+ELSE
+  → Extend existing component with additional props
+```
+
+#### API Endpoint Design
+```
+IF data mutation (create/update/delete)
+  → POST/PUT/PATCH with Zod validation + audit logging
+IF data retrieval with complex filtering
+  → GET with query params + pagination + caching
+IF real-time updates needed
+  → Consider WebSocket or Server-Sent Events
+IF file upload required
+  → Use multipart/form-data with size/type validation
+```
+
+## Code Templates
+
+### API Endpoint Template (ALWAYS FOLLOW)
+```typescript
+@Controller('resource-name')
+@ApiTags('resource-name')
+@UseGuards(AuthGuard)
+export class ResourceController {
+  constructor(private readonly resourceService: ResourceService) {}
+
+  @Get()
+  @ApiOperation({ summary: 'List resources with pagination' })
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  async findAll(
+    @Query() query: FindResourcesQueryDto,
+    @CurrentUser() user: User,
+  ): Promise<PaginatedResponse<ResourceResponseDto>> {
+    return this.resourceService.findAll(query, user);
+  }
+
+  @Post()
+  @ApiOperation({ summary: 'Create new resource' })
+  @ApiBody({ type: CreateResourceDto })
+  async create(
+    @Body() createDto: CreateResourceDto,
+    @CurrentUser() user: User,
+  ): Promise<ResourceResponseDto> {
+    return this.resourceService.create(createDto, user);
+  }
+}
+```
+
+### Service Template (ALWAYS FOLLOW)
+```typescript
+@Injectable()
+export class ResourceService {
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly logger: Logger,
+  ) {}
+
+  async findAll(
+    query: FindResourcesQueryDto,
+    user: User,
+  ): Promise<PaginatedResponse<ResourceResponseDto>> {
+    try {
+      const { page = 1, limit = 20 } = query;
+      const skip = (page - 1) * limit;
+
+      const [items, total] = await Promise.all([
+        this.prisma.resource.findMany({
+          where: { deletedAt: null, ...this.buildWhereClause(query) },
+          skip,
+          take: Math.min(limit, 100), // Max 100 items
+          orderBy: { createdAt: 'desc' },
+        }),
+        this.prisma.resource.count({
+          where: { deletedAt: null, ...this.buildWhereClause(query) },
+        }),
+      ]);
+
+      return {
+        data: items.map(item => this.mapToResponseDto(item)),
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages: Math.ceil(total / limit),
+        },
+      };
+    } catch (error) {
+      this.logger.error('Failed to fetch resources', { error, query, userId: user.id });
+      throw new InternalServerErrorException('Failed to fetch resources');
+    }
+  }
+}
+```
+
+### React Component Template (ALWAYS FOLLOW)
+```typescript
+'use client';
+
+interface ComponentNameProps {
+  // Always define explicit props interface
+  data: DataType;
+  onAction?: (item: DataType) => void;
+  loading?: boolean;
+  className?: string;
+}
+
+export function ComponentName({
+  data,
+  onAction,
+  loading = false,
+  className
+}: ComponentNameProps) {
+  // Always include loading and error states
+  if (loading) {
+    return <ComponentNameSkeleton />;
+  }
+
+  return (
+    <div
+      className={cn("base-styles", className)}
+      role="region" // Always include ARIA labels
+      aria-label="Component description"
+    >
+      {/* Component content */}
+    </div>
+  );
+}
+
+// Always include skeleton for loading states
+function ComponentNameSkeleton() {
+  return (
+    <div className="animate-pulse">
+      <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+      <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+    </div>
+  );
+}
+```
+
+## Strict Naming Conventions (ENFORCE EXACTLY)
+
+### File Naming (MANDATORY)
+- **Components**: `PascalCase.tsx` → `UserProfileCard.tsx`
+- **Pages**: `kebab-case/page.tsx` → `user-profile/page.tsx`
+- **API Routes**: `kebab-case/route.ts` → `user-profiles/route.ts`
+- **Types**: `kebab-case.types.ts` → `user-profile.types.ts`
+- **Services**: `kebab-case.service.ts` → `user-profile.service.ts`
+- **Hooks**: `use-kebab-case.ts` → `use-user-profile.ts`
+
+### Variable Naming (MANDATORY)
+- **Boolean**: `is/has/can/should + PascalCase` → `isUserActive`, `hasPermission`
+- **Arrays**: `plural noun` → `users`, `permissions`, `activeUsers`
+- **Functions**: `verb + noun` → `getUserById`, `validateUserInput`
+- **Constants**: `SCREAMING_SNAKE_CASE` → `MAX_RETRY_ATTEMPTS`
+- **Event Handlers**: `handle + Action` → `handleSubmit`, `handleUserClick`
+
+### API Naming (MANDATORY)
+- **Endpoints**: `kebab-case` → `/api/v1/user-profiles/{id}`
+- **Query Params**: `camelCase` → `?sortBy=createdAt&isActive=true`
+- **JSON Fields**: `camelCase` → `{ "firstName": "John", "isActive": true }`
+
+## TypeScript Standards
+
+### Strict Configuration
+- Use strict TypeScript settings with `exactOptionalPropertyTypes`
+- Enable `noUnusedLocals` and `noUnusedParameters`
+- Use path mapping for clean imports: `@/*` for src
+
+### Type Safety Rules
+- Always define explicit interfaces for API requests/responses
+- Define types locally in each project (`backend/src/types/` and `frontend/src/types/`)
+- Prefer `interface` over `type` for object shapes
+- Use enums for constants with multiple values
+- Always type function parameters and return types for public APIs
+- Duplicate common API types between frontend and backend for consistency
+- Use API schema generation tools when possible to maintain type consistency
+
+## NestJS Best Practices
+
+### Module Organization
+- Each feature should be a self-contained module
+- Use feature modules: `auth/`, `users/`, etc.
+- Export services that other modules need
+- Use `@Global()` decorator sparingly, only for truly global services
+
+### Controller Guidelines
+- Keep controllers thin - only handle HTTP concerns
+- Use proper HTTP status codes with `@HttpCode()` decorator
+- Always validate requests with DTOs and `ValidationPipe`
+- Use Swagger decorators for API documentation
+- Example:
+```typescript
+@Controller('users')
+@ApiTags('users')
+export class UsersController {
+  @Get()
+  @ApiOperation({ summary: 'Get all users' })
+  async findAll(@Query() query: FindUsersQueryDto): Promise<UserResponseDto[]> {
+    return this.usersService.findAll(query);
+  }
+}
+```
+
+### Service Layer Patterns
+- Services contain business logic and should be easily testable
+- Use dependency injection with interfaces for better testability
+- Handle errors appropriately with custom exceptions
+- Use transactions for multi-step operations
+- Example:
+```typescript
+@Injectable()
+export class UsersService {
+  constructor(
+    private readonly userRepository: UserRepository,
+    private readonly logger: Logger,
+  ) {}
+
+  async findOne(id: string): Promise<UserResponseDto> {
+    const user = await this.userRepository.findById(id);
+    if (!user) {
+      throw new NotFoundException(`User with ID ${id} not found`);
+    }
+    return this.mapToResponseDto(user);
+  }
+}
+```
+
+### Database Patterns
+- Use Prisma with PostgreSQL
+- ULID for all primary keys
+- Soft deletes with `deleted_at` column on all tables
+- Always include `created_at`, `updated_at`, `deleted_at` timestamps
+- Audit logging for all create/update/delete operations
+- Example schema:
+```prisma
+model User {
+  id        String    @id @default(cuid()) // Use ULID in app layer
+  email     String    @unique
+  firstName String
+  lastName  String
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime? // Soft delete
+
+  @@map("users")
+}
+```
+
+### Authentication & Security
+- Use Better Auth with `@thallesp/nestjs-better-auth` for authentication
+- Configure Better Auth with database adapter (Prisma recommended)
+- Use guards for route protection: `@UseGuards(AuthGuard)`
+- Implement rate limiting with `@nestjs/throttler`
+- Validate all inputs with class-validator
+- Use helmet for security headers
+- Example Better Auth setup:
+```typescript
+// auth.config.ts
+export const auth = betterAuth({
+  database: prismaAdapter(prisma),
+  emailAndPassword: { enabled: true },
+  socialProviders: {
+    google: { clientId: process.env.GOOGLE_CLIENT_ID!, clientSecret: process.env.GOOGLE_CLIENT_SECRET! }
+  }
+});
+
+// auth.module.ts
+AuthModule.forRoot(auth, { disableExceptionFilter: true, disableTrustedOriginsCors: true })
+
+// main.ts setup
+const app = await NestFactory.create(AppModule, { bodyParser: false });
+app.use((req, res, next) => {
+  if (!req.path.startsWith('/api/auth/')) {
+    express.json()(req, res, next);
+  } else {
+    next();
+  }
+});
+```
+
+### Error Handling
+- Create domain-specific exceptions
+- Use global exception filters
+- Log errors appropriately
+- Return consistent error responses
+- Example:
+```typescript
+export class UserNotFoundException extends NotFoundException {
+  constructor(id: string) {
+    super(`User with ID ${id} not found`);
+  }
+}
+```
+
+## Security Validation Checkpoints
+
+### Input Validation Layers (MANDATORY)
+```
+1. Client-side: Zod schema validation
+2. API Gateway: Rate limiting + basic validation
+3. Controller: DTO validation with class-validator
+4. Service: Business rule validation
+5. Database: Prisma schema constraints
+```
+
+### Security Checklist (VERIFY BEFORE COMMIT)
+- [ ] All user inputs validated with Zod schemas
+- [ ] SQL injection prevention (Prisma parameterized queries)
+- [ ] XSS prevention (proper escaping/sanitization)
+- [ ] CSRF protection (Better Auth handles this)
+- [ ] Rate limiting implemented on endpoints
+- [ ] Sensitive data not logged or stored in client
+- [ ] Audit logging for all data mutations
+- [ ] Authentication required for protected routes
+- [ ] Authorization checks for resource access
+
+### Authentication Patterns (ALWAYS IMPLEMENT)
+```typescript
+// Route-level protection
+@UseGuards(AuthGuard)
+@Controller('protected-resource')
+
+// Component-level protection
+'use client';
+import { useSession } from '@/lib/auth-client';
+
+export function ProtectedComponent() {
+  const { data: session, isLoading } = useSession();
+
+  if (isLoading) return <LoadingSkeleton />;
+  if (!session) return <LoginPrompt />;
+
+  return <ActualComponent />;
+}
+
+// API-level validation
+async create(dto: CreateDto, @CurrentUser() user: User) {
+  // Always validate user has permission for this action
+  if (!this.canUserPerformAction(user, 'CREATE', dto)) {
+    throw new ForbiddenException('Insufficient permissions');
+  }
+}
+```
+import { create } from 'zustand';
+
+interface AppState {
+  theme: 'light' | 'dark';
+  sidebarOpen: boolean;
+  toggleTheme: () => void;
+  toggleSidebar: () => void;
+}
+
+export const useAppStore = create<AppState>((set) => ({
+  theme: 'light',
+  sidebarOpen: false,
+  toggleTheme: () => set((state) => ({ theme: state.theme === 'light' ? 'dark' : 'light' })),
+  toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
+}));
+
+### API Integration
+- Create service layer for API calls
+- Use consistent error handling across services
+- Implement proper loading states
+- Cache responses when appropriate
+- Use Better Auth client for authentication
+- Example:
+```typescript
+// lib/auth-client.ts
+import { createAuthClient } from "better-auth/react";
+
+export const authClient = createAuthClient({
+  baseURL: process.env.NEXT_PUBLIC_API_URL,
+});
+
+// components/LoginForm.tsx
+import { authClient } from "@/lib/auth-client";
+
+export function LoginForm() {
+  const { signIn } = authClient;
+
+  const handleSubmit = async (email: string, password: string) => {
+    await signIn.email({ email, password });
+  };
+}
+
+export class UsersService {
+  async findAll(params: FindUsersParams): Promise<PaginatedResponse<User>> {
+    const response = await apiClient.get<PaginatedResponse<User>>('/users', params);
+    if (response.success) {
+      return response.data;
+    }
+    throw new Error(response.message || 'Failed to fetch users');
+  }
+}
+```
+
+### Performance Guidelines
+- Use static generation when possible
+- Implement proper image optimization
+- Minimize JavaScript bundle size
+- Use lazy loading for non-critical components
+- Optimize fonts and assets
+- Implement proper caching strategies
+
+## Type Management & Cross-cutting Concerns
+
+### Type Organization
+- Define backend types in `backend/src/types/` directory
+- Define frontend types in `frontend/src/types/` directory
+- Use consistent naming: `CreateUserDto`, `UserResponseDto`
+- Export from centralized index files in each project
+- Duplicate common API types between projects for consistency
+- Example backend types:
+```typescript
+// backend/src/types/user.types.ts
+export interface CreateUserDto {
+  email: string;
+  firstName: string;
+  lastName: string;
+  password: string;
+}
+
+export interface UserResponseDto {
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  createdAt: string;
+  updatedAt: string;
+}
+```
+
+- Example frontend types:
+```typescript
+// frontend/src/types/api.ts
+export interface CreateUserRequest {
+  email: string;
+  firstName: string;
+  lastName: string;
+  password: string;
+}
+
+export interface User {
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  createdAt: string;
+  updatedAt: string;
+}
+```
+
+### Code Quality Standards
+- Use ESLint with TypeScript rules
+- Format code with Prettier
+- Maintain 80%+ test coverage
+- Use Husky for pre-commit hooks
+- Follow conventional commit messages
+- Example commit: `feat(auth): implement JWT refresh token mechanism`
+
+### Git Workflow
+- Use feature branches: `feature/user-authentication`
+- Create PRs for all changes
+- Require code review before merge
+- Use semantic versioning for releases
+- Keep commits atomic and descriptive
+
+## Quick Commands
+
+### Frontend
+```bash
+npx create-next-app@latest --typescript --tailwind --app
+npm install @tanstack/react-query zustand react-hook-form zod
+npm install -D @biomejs/biome @testing-library/react playwright
+```
+
+### Backend
+```bash
+nest new api
+npm install @nestjs/swagger @nestjs/throttler nestjs-pino
+npm install prisma @prisma/client bull bullmq
+npm install -D @biomejs/biome jest supertest
+```
+
+### Initialize
+```bash
+# Biome setup
+npx @biomejs/biome init
+npx @biomejs/biome check --write .
+
+# Prisma setup
+npx prisma init
+npx prisma generate
+```
