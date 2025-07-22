@@ -1,3 +1,7 @@
+---
+type: "agent_requested"
+description: "Example description"
+---
 # Security & Authentication Rules
 
 **Type**: Always  

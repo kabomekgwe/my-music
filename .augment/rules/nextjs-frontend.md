@@ -1,3 +1,7 @@
+---
+type: "agent_requested"
+description: "Example description"
+---
 # Next.js Frontend Rules
 
 **Type**: Auto  
